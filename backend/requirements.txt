@@ -1,6 +1,7 @@
 fastapi
 uvicorn
-mediapipe
+mediapipe==0.10.33
 opencv-python
 websockets
 python-multipart
+numpy
