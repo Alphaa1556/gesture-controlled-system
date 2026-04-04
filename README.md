@@ -3,8 +3,8 @@
 A real-time gesture recognition system using MediaPipe + FastAPI backend and a React frontend.
 
 ## Team
-- Backend: [Your name] — `backend/`
-- Frontend: [Teammate 1], [Teammate 2] — `frontend/`
+- Backend: Yash Khanavkar — `backend/`
+- Frontend: Shubhaan Banerjee, Janhavi Ahire — `frontend/`
 
 ## Running locally
 ### Backend
