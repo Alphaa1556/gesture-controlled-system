@@ -20,7 +20,7 @@ export function useGesture() {
     });
 
     // 2. Connect to backend WebSocket
-    const ws = new WebSocket("ws://localhost:8001/ws/gesture");
+    const ws = new WebSocket("ws://localhost:8000/ws/gesture");
     wsRef.current = ws;
 
     ws.onopen = () => setConnected(true);

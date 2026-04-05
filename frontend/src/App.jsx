@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useGesture } from "./useGesture";
 import LandmarkOverlay from "./LandmarkOverlay";
 import "./App.css";
@@ -14,6 +14,15 @@ const GESTURE_INFO = {
   none:       { emoji: "🤚", name: "No Hand",     desc: "No hand in frame" },
 };
 
+const GESTURE_ACTIONS = {
+  thumbs_up:  { label: "🔊 Volume Up",     color: "#5DCAA5" },
+  fist:       { label: "🔇 Volume Down",   color: "#CA5D5D" },
+  peace:      { label: "⏭️ Next Slide",    color: "#7F77DD" },
+  pointing:   { label: "⏮️ Prev Slide",    color: "#EF9F27" },
+  open_hand:  { label: "⏸️ Pause / Stop",  color: "#AFA9EC" },
+  call_me:    { label: "▶️ Play / Resume", color: "#5DCAA5" },
+};
+
 const DOT_COLORS = ["#5DCAA5", "#7F77DD", "#EF9F27", "#CA5D5D"];
 
 export default function App() {
@@ -21,10 +30,91 @@ export default function App() {
   const [videoDimensions, setVideoDimensions] = useState({ w: 640, h: 480 });
   const [history, setHistory] = useState([]);
   const [frames, setFrames] = useState(0);
+  const [volume, setVolume] = useState(50);
+  const [actionFeedback, setActionFeedback] = useState("");
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [slideIndex, setSlideIndex] = useState(1);
 
-  const info = GESTURE_INFO[gesture] || GESTURE_INFO["unknown"];
+  const prevGestureRef = useRef("none");
+  const cooldownRef = useRef(false);
+  const gainNodeRef = useRef(null);
 
   useEffect(() => {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const gainNode = ctx.createGain();
+    gainNode.connect(ctx.destination);
+    gainNode.gain.value = 0.5;
+    gainNodeRef.current = gainNode;
+  }, []);
+
+  const showFeedback = (msg) => {
+    setActionFeedback(msg);
+    setTimeout(() => setActionFeedback(""), 1500);
+  };
+
+  const handleGestureAction = useCallback((g) => {
+    if (cooldownRef.current) return;
+    if (g === prevGestureRef.current) return;
+    if (g === "none" || g === "unknown") return;
+
+    prevGestureRef.current = g;
+    cooldownRef.current = true;
+    setTimeout(() => { cooldownRef.current = false; }, 1000);
+
+    switch (g) {
+      case "thumbs_up":
+        setVolume(prev => {
+          const next = Math.min(100, prev + 10);
+          if (gainNodeRef.current)
+            gainNodeRef.current.gain.value = next / 100;
+          showFeedback(`🔊 Volume: ${next}%`);
+          return next;
+        });
+        break;
+
+      case "fist":
+        setVolume(prev => {
+          const next = Math.max(0, prev - 10);
+          if (gainNodeRef.current)
+            gainNodeRef.current.gain.value = next / 100;
+          showFeedback(`🔉 Volume: ${next}%`);
+          return next;
+        });
+        break;
+
+      case "peace":
+        setSlideIndex(prev => {
+          const next = prev + 1;
+          showFeedback(`⏭️ Slide → ${next}`);
+          return next;
+        });
+        break;
+
+      case "pointing":
+        setSlideIndex(prev => {
+          const next = Math.max(1, prev - 1);
+          showFeedback(`⏮️ Slide → ${next}`);
+          return next;
+        });
+        break;
+
+      case "open_hand":
+        setIsPlaying(false);
+        showFeedback("⏸️ Paused");
+        break;
+
+      case "call_me":
+        setIsPlaying(true);
+        showFeedback("▶️ Playing");
+        break;
+
+      default:
+        break;
+    }
+  }, []);
+
+  useEffect(() => {
+    handleGestureAction(gesture);
     if (gesture && gesture !== "none") {
       setHistory(prev => {
         const entry = { gesture, time: new Date() };
@@ -39,6 +129,8 @@ export default function App() {
     if (secs < 2) return "just now";
     return `${secs}s ago`;
   }
+
+  const info = GESTURE_INFO[gesture] || GESTURE_INFO["unknown"];
 
   return (
     <div className="app">
@@ -56,19 +148,22 @@ export default function App() {
         </div>
       </div>
 
+      {actionFeedback && (
+        <div style={{
+          position: "fixed", top: "80px", left: "50%",
+          transform: "translateX(-50%)",
+          background: "#1a1a2e", border: "1px solid #7F77DD",
+          color: "#fff", padding: "10px 24px", borderRadius: "24px",
+          fontSize: "18px", fontWeight: "600", zIndex: 999,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.4)"
+        }}>
+          {actionFeedback}
+        </div>
+      )}
+
       <div className="main">
         <div className="left-col">
           <div className="cam-wrap">
-            {!videoRef.current?.srcObject && (
-              <div className="cam-inner">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-                  stroke="#333" strokeWidth="1.2">
-                  <path d="M23 7l-7 5 7 5V7z"/>
-                  <rect x="1" y="5" width="15" height="14" rx="2"/>
-                </svg>
-                <span className="cam-label">Starting webcam...</span>
-              </div>
-            )}
             <video
               ref={videoRef}
               className="video-el"
@@ -88,22 +183,40 @@ export default function App() {
             <div className="cam-corner c-br"></div>
           </div>
 
-          <div className="stats">
+          <div className="stats" style={{ marginTop: "12px" }}>
             <div className="stat">
               <div className="stat-val" style={{ color: "#5DCAA5" }}>{frames}</div>
-              <div className="stat-label">Frames processed</div>
+              <div className="stat-label">Frames</div>
             </div>
             <div className="stat">
-              <div className="stat-val" style={{ color: "#AFA9EC" }}>98%</div>
-              <div className="stat-label">Detection accuracy</div>
+              <div className="stat-val" style={{ color: "#EF9F27" }}>{volume}%</div>
+              <div className="stat-label">Volume</div>
             </div>
             <div className="stat">
-              <div className="stat-val" style={{ color: "#EF9F27" }}>100ms</div>
-              <div className="stat-label">Frame interval</div>
+              <div className="stat-val" style={{ color: "#7F77DD" }}>#{slideIndex}</div>
+              <div className="stat-label">Slide</div>
             </div>
             <div className="stat">
-              <div className="stat-val" style={{ color: "#5DCAA5" }}>6</div>
-              <div className="stat-label">Gestures supported</div>
+              <div className="stat-val" style={{ color: isPlaying ? "#5DCAA5" : "#CA5D5D" }}>
+                {isPlaying ? "▶️" : "⏸️"}
+              </div>
+              <div className="stat-label">State</div>
+            </div>
+          </div>
+
+          <div style={{ padding: "8px 0 0" }}>
+            <div style={{ fontSize: "11px", color: "#555", marginBottom: "4px" }}>
+              🔊 Volume
+            </div>
+            <div style={{
+              height: "8px", background: "#222",
+              borderRadius: "4px", overflow: "hidden"
+            }}>
+              <div style={{
+                width: `${volume}%`, height: "100%",
+                background: volume > 70 ? "#CA5D5D" : volume > 40 ? "#EF9F27" : "#5DCAA5",
+                borderRadius: "4px", transition: "width 0.3s, background 0.3s"
+              }} />
             </div>
           </div>
         </div>
@@ -114,20 +227,33 @@ export default function App() {
             <div className="gesture-big">{info.emoji}</div>
             <div className="gesture-name">{info.name}</div>
             <div className="gesture-desc">{info.desc}</div>
+            {GESTURE_ACTIONS[gesture] && (
+              <div style={{
+                marginTop: "8px", fontSize: "13px", fontWeight: "600",
+                color: GESTURE_ACTIONS[gesture].color
+              }}>
+                Action: {GESTURE_ACTIONS[gesture].label}
+              </div>
+            )}
             <div className="accent-bar"></div>
           </div>
 
           <div className="card">
-            <div className="card-label">All gestures</div>
-            <div className="chips">
-              {Object.entries(GESTURE_INFO)
-                .filter(([key]) => key !== "unknown" && key !== "none")
-                .map(([key, val]) => (
-                  <div key={key} className={`chip ${gesture === key ? "active" : ""}`}>
-                    <span className="chip-icon">{val.emoji}</span>
-                    {val.name}
-                  </div>
-                ))}
+            <div className="card-label">Gesture → Action map</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              {Object.entries(GESTURE_ACTIONS).map(([key, val]) => (
+                <div key={key} style={{
+                  display: "flex", justifyContent: "space-between",
+                  alignItems: "center", fontSize: "13px",
+                  padding: "4px 8px", borderRadius: "6px",
+                  background: gesture === key ? "#1a1a2e" : "transparent",
+                  border: gesture === key
+                    ? `1px solid ${val.color}` : "1px solid transparent"
+                }}>
+                  <span>{GESTURE_INFO[key]?.emoji} {GESTURE_INFO[key]?.name}</span>
+                  <span style={{ color: val.color }}>{val.label}</span>
+                </div>
+              ))}
             </div>
           </div>
 
