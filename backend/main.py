@@ -8,7 +8,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten for production
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -31,13 +31,47 @@ async def gesture_ws(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            data = await websocket.receive_text()
-            payload = json.loads(data)
+            try:
+                data = await websocket.receive_text()
+                payload = json.loads(data)
 
-            # Expect: { "frame": "<base64 jpeg>" }
-            frame_bytes = base64.b64decode(payload["frame"])
-            result = process_frame(frame_bytes)
+                # Validate frame exists
+                if "frame" not in payload or not payload["frame"]:
+                    await websocket.send_text(json.dumps({
+                        "gesture": "none", "landmarks": []
+                    }))
+                    continue
 
-            await websocket.send_text(json.dumps(result))
+                # Clean and decode base64
+                frame_data = payload["frame"]
+                # Remove data URL prefix if present
+                if "," in frame_data:
+                    frame_data = frame_data.split(",")[1]
+
+                # Add padding if needed
+                missing_padding = len(frame_data) % 4
+                if missing_padding:
+                    frame_data += "=" * (4 - missing_padding)
+
+                frame_bytes = base64.b64decode(frame_data)
+
+                if len(frame_bytes) == 0:
+                    await websocket.send_text(json.dumps({
+                        "gesture": "none", "landmarks": []
+                    }))
+                    continue
+
+                result = process_frame(frame_bytes)
+                await websocket.send_text(json.dumps(result))
+
+            except json.JSONDecodeError:
+                continue
+            except Exception as e:
+                print(f"Frame error: {e}")
+                await websocket.send_text(json.dumps({
+                    "gesture": "none", "landmarks": []
+                }))
+                continue
+
     except WebSocketDisconnect:
         print("Client disconnected")
