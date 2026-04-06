@@ -9,8 +9,8 @@ A real-time hand gesture recognition system built with **MediaPipe**, **FastAPI*
 | Name | Role |
 |------|------|
 | Yash Khanavkar | Backend Developer |
-| [Teammate 1] | Frontend Developer |
-| [Teammate 2] | Frontend Developer |
+| Shubhaan Banerjee | Frontend Developer |
+| Janhavi Ahire | Frontend Developer |
 
 ---
 
