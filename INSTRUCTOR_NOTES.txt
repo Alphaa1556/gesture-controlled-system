@@ -1,0 +1,39 @@
+INSTRUCTOR NOTES — Demo Repo Walkthrough
+=========================================
+This "my-first-repo" folder is intentionally NOT a Git repository yet —
+it's just three plain files (index.html, style.css, script.js) so you can
+run `git init` live and build history in front of the room.
+
+Suggested live sequence (matches the session doc, Part 2):
+
+1. cd into my-first-repo, run `git init`, then `git status`.
+2. `touch README.md .gitignore`
+   - README.md: write one line, e.g. "A tiny demo project for practicing Git."
+   - .gitignore: add a line like `node_modules/` to demonstrate the concept.
+3. git add . -> git commit -m "Initial commit: add starter files"
+4. Create a GitHub repo named my-first-repo (empty, no README/license so it
+   doesn't conflict with your local one), then:
+   git remote add origin https://github.com/<username>/my-first-repo.git
+   git branch -M main
+   git push -u origin main
+5. Make a visible second change for the "second push" step:
+   Open index.html and add a short new paragraph under the <h1>, e.g.
+     <p>Now tracked with version control.</p>
+   git add index.html -> git commit -m "Add tagline to homepage" -> git push
+6. Branching demo:
+   git checkout -b feature/add-heading
+   Edit style.css — change the button background color (e.g. to #2da44e).
+   git add style.css -> git commit -m "Change button color on feature branch"
+   git push -u origin feature/add-heading
+   Open a Pull Request on GitHub, review, and merge it.
+   Back locally: git checkout main -> git pull
+
+7. OPTIONAL — merge conflict demo:
+   On main, change the <h1> text in index.html to "Hello, Learners!" and commit.
+   On a second branch (e.g. git checkout -b conflict-demo from an earlier
+   commit, or before pulling), change the same <h1> line to "Welcome, Class!"
+   and commit. Merge the two branches into main to trigger a real conflict,
+   then resolve it live by editing out the <<<<<<< / ======= / >>>>>>> markers.
+
+Nothing here is precious — feel free to delete/re-init the repo between
+sessions or classes.
